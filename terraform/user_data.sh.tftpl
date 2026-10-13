@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Runs once on the first boot: installs Docker and creates the "deploy" user for CI/CD.
+set -euo pipefail
+
+apt-get update
+apt-get install -y ca-certificates curl
+curl -fsSL https://get.docker.com | sh
+
+useradd --create-home --shell /bin/bash --groups docker deploy
+install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+echo "${deploy_public_key}" > /home/deploy/.ssh/authorized_keys
+chown deploy:deploy /home/deploy/.ssh/authorized_keys
+chmod 600 /home/deploy/.ssh/authorized_keys
+
+install -d -o deploy -g deploy /opt/hello-nginx
