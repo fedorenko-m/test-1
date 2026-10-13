@@ -1,0 +1,84 @@
+name: CI/CD
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+    workflow_dispatch:
+
+env:
+    IMAGE: ${{ vars.IMAGE }}
+    TAG: ${{ github.sha }}
+
+jobs:
+    lint:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Lint Dockerfile
+              uses: hadolint/hadolint-action@v3.1.0
+              with:
+                  dockerfile: Dockerfile
+
+            - name: Lint shell scripts
+              run: shellcheck scripts/*.sh
+
+    build:
+        needs: lint
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Build image
+              run: scripts/deploy.sh build
+
+            - name: Smoke test
+              run: |
+                  docker run -d --name smoke -p 8080:8080 "${IMAGE}:${TAG}"
+                  for _ in $(seq 1 10); do
+                      curl -fsS http://127.0.0.1:8080/healthz && break
+                      sleep 1
+                  done
+                  curl -fsS http://127.0.0.1:8080/ | grep -q "Hello, World!"
+
+            - name: Show container logs
+              if: failure()
+              run: docker logs smoke
+
+            - name: Log in to Docker Hub
+              if: github.event_name != 'pull_request'
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            - name: Push image
+              if: github.event_name != 'pull_request'
+              run: scripts/deploy.sh push
+
+    deploy:
+        needs: build
+        if: github.event_name != 'pull_request'
+        runs-on: ubuntu-latest
+        environment: test
+        concurrency:
+            group: deploy-test
+            cancel-in-progress: false
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up SSH key
+              run: |
+                  install -m 700 -d ~/.ssh
+                  echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+                  chmod 600 ~/.ssh/id_ed25519
+
+            - name: Deploy to test server
+              env:
+                  DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+                  DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+              run: scripts/deploy.sh deploy
+
+            - name: Check the public URL
+              run: curl -fsS "http://${{ secrets.DEPLOY_HOST }}/" | grep -q "Hello, World!"
