@@ -69,7 +69,7 @@ In **Settings → Secrets and variables → Actions** add:
 | `DEPLOY_USER` | secret | SSH user on the server (`deploy`) |
 | `DEPLOY_SSH_KEY` | secret | private SSH key of that user |
 
-Also create the environment `test` (**Settings → Environments**). After that every push to `main` deploys the site to `http://<DEPLOY_HOST>/`.
+Also create the environment `test` (**Settings → Environments**). After that every push to `main` deploys the site to `http://<DEPLOY_HOST>/hello`.
 
 ## Deploy by hand
 
