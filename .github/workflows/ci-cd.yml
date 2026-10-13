@@ -37,10 +37,10 @@ jobs:
               run: |
                   docker run -d --name smoke -p 8080:8080 "${IMAGE}:${TAG}"
                   for _ in $(seq 1 10); do
-                      curl -fsS http://${{ secrets.DEPLOY_HOST }}:8080/healthz && break
+                      curl -fsS http://localhost:8080/healthz && break
                       sleep 1
                   done
-                  curl -fsS http://${{ secrets.DEPLOY_HOST }}:8080/ | grep -q "Hello, World!"
+                  curl -fsS http://localhost:8080/ | grep -q "Hello, World!"
 
             - name: Show container logs
               if: failure()
@@ -81,4 +81,4 @@ jobs:
               run: scripts/deploy.sh deploy
 
             - name: Check the public URL
-              run: curl -fsS "http://${{ secrets.DEPLOY_HOST }}/" | grep -q "Hello, World!"
+              run: curl -fsS "http://${{ secrets.DEPLOY_HOST }}/hello" | grep -q "Hello, World!"
